@@ -1,23 +1,23 @@
 <?php
-// public_html/create_order.php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+// create_order.php
 error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
-    $amount = isset($_POST['amount']) ? floatval($_POST['amount']) : 100.00;
-    $userId = "user123"; // baadme dynamic karu
-
+    
+    $amount = isset($_POST['amount']) ? number_format((float)$_POST['amount'], 2, '.', '') : "100.00";
+    
     $params = [
-        "amount" => number_format($amount, 2, '.', ''),
-        "appNo" => "KARMAXRISHI",
-        "callbackUrl" => "https://darkwepaymentnet.xo.je/callback.php",   // ← Changed
-        "name" => "User",
-        "orderCode" => "ORDER_" . time() . rand(1000,9999)
+        "amount"      => $amount,
+        "appNo"       => "KARMAXRISHI",
+        "callbackUrl" => "https://mlpay-bot.onrender.com/callback.php",
+        "name"        => "User",
+        "orderCode"   => "ORDER_" . time() . rand(100,999)
     ];
 
+    // === Signature Calculation (Important) ===
     ksort($params);
-    $query_string = http_build_query($params);
+    $query_string = http_build_query($params);   // Better method
     $secret_key = "dtdLggJaWaltMXrtJVVs";
     $final_string = $query_string . "&key=" . $secret_key;
     $signature = strtolower(md5($final_string));
@@ -38,29 +38,24 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
 
     if ($response) {
         $result = json_decode($response, true);
+        
         if (isset($result['code']) && $result['code'] == 200) {
-            $data = $result['data'];
-            $orderData = json_encode([
-                "userId" => $userId,
-                "orderCode" => $data['orderCode'],
-                "merchantOrderCode" => $data['merchantOrderCode'],
-                "amount" => $amount,
-                "status" => "pending"
-            ]);
-
-            file_put_contents('orders.txt', $orderData . "\n", FILE_APPEND);
-
             echo json_encode([
                 "success" => true,
-                "tradeUrl" => $data['tradeUrl'],
-                "orderCode" => $data['orderCode']
+                "tradeUrl" => $result['data']['tradeUrl'],
+                "orderCode" => $result['data']['orderCode']
             ]);
         } else {
-            echo json_encode(["error" => $result['msg'] ?? "Payment creation failed"]);
+            echo json_encode([
+                "error" => $result['msg'] ?? 'Signature ya kahi error'
+            ]);
         }
     } else {
-        echo json_encode(["error" => "No response from ML Pay"]);
+        echo json_encode(["error" => "ML Pay server no response"]);
     }
     exit;
 }
+
+// Browser test sathi
+echo "create_order.php is working";
 ?>
