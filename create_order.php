@@ -6,20 +6,27 @@ ini_set('display_errors', 1);
 if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
     
     $amount = isset($_POST['amount']) ? number_format((float)$_POST['amount'], 2, '.', '') : "100.00";
-    
+
     $params = [
         "amount"      => $amount,
         "appNo"       => "KARMAXRISHI",
         "callbackUrl" => "https://mlpay-bot.onrender.com/callback.php",
         "name"        => "User",
-        "orderCode"   => "ORDER_" . time() . rand(100,999)
+        "orderCode"   => "ORDER_" . time() . rand(1000,9999)
     ];
 
-    // === Signature Calculation (Important) ===
+    // === Exact Signature Calculation (ML Pay Style) ===
     ksort($params);
-    $query_string = http_build_query($params);   // Better method
+    
+    $query_string = "";
+    foreach ($params as $key => $value) {
+        $query_string .= $key . "=" . $value . "&";
+    }
+    $query_string = rtrim($query_string, "&");
+
     $secret_key = "dtdLggJaWaltMXrtJVVs";
     $final_string = $query_string . "&key=" . $secret_key;
+    
     $signature = strtolower(md5($final_string));
 
     $params["sign"] = $signature;
@@ -36,26 +43,29 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
     $response = curl_exec($ch);
     curl_close($ch);
 
+    // Debug Response
+    file_put_contents('mlpay_debug.log', date('H:i:s') . " - Response: " . $response . "\n", FILE_APPEND);
+
     if ($response) {
         $result = json_decode($response, true);
         
         if (isset($result['code']) && $result['code'] == 200) {
             echo json_encode([
                 "success" => true,
-                "tradeUrl" => $result['data']['tradeUrl'],
-                "orderCode" => $result['data']['orderCode']
+                "tradeUrl" => $result['data']['tradeUrl'] ?? '',
+                "orderCode" => $result['data']['orderCode'] ?? ''
             ]);
         } else {
             echo json_encode([
-                "error" => $result['msg'] ?? 'Signature ya kahi error'
+                "error" => $result['msg'] ?? 'Signature Error or API Error'
             ]);
         }
     } else {
-        echo json_encode(["error" => "ML Pay server no response"]);
+        echo json_encode(["error" => "No response from ML Pay"]);
     }
     exit;
 }
 
-// Browser test sathi
-echo "create_order.php is working";
+// Browser test
+echo "create_order.php working";
 ?>
