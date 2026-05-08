@@ -52,13 +52,15 @@ if (isset($update['message'])) {
         sendMessage($chat_id, "🔄 Creating order...");
 
         // POST Method
-        $ch = curl_init("https://mlpay-bot.onrender.com/create_order.php");
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, ['action' => 'create_order', 'amount' => $amount]);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($ch);
-        curl_close($ch);
+       // bot.php madhe /deposit part madhe he use kar
+$ch = curl_init("https://mlpay-bot.onrender.com/create_order.php");
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, ['action' => 'create_order', 'amount' => $amount]);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+$response = curl_exec($ch);
+curl_close($ch);
 
+sendMessage($chat_id, "Raw Response:\n" . $response);
         $res = json_decode($response, true);
 
         if (isset($res['success']) && $res['success'] == true) {
