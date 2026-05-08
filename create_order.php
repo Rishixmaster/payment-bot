@@ -1,5 +1,5 @@
 <?php
-// create_order.php
+// create_order.php - FIXED SIGNATURE
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -16,25 +16,26 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
         "orderCode"   => "TG_" . time() . rand(10000,99999)
     ];
 
+    // === FIXED SIGNATURE METHOD ===
     ksort($params);
-    $query_string = http_build_query($params);
+    
+    $signString = "";
+    foreach ($params as $key => $value) {
+        $signString .= $key . "=" . $value . "&";
+    }
+    $signString = rtrim($signString, "&");
+
     $secret_key = "dtdLggJaWaltMXrtJVVs";
-    $final_string = $query_string . "&key=" . $secret_key;
+    $final_string = $signString . "&key=" . $secret_key;
+    
     $signature = strtolower(md5($final_string));
 
     $params["sign"] = $signature;
 
     $json_data = json_encode($params, JSON_UNESCAPED_SLASHES);
 
-    // Debug Output
-    $debug = [
-        "status" => "debug",
-        "amount" => $amount,
-        "orderCode" => $params["orderCode"],
-        "final_string" => $final_string,
-        "signature" => $signature,
-        "json_sent" => $json_data
-    ];
+    // Debug
+    file_put_contents('sign_debug.log', date('H:i:s') . " Final String: " . $final_string . "\nSignature: " . $signature . "\n\n", FILE_APPEND);
 
     $ch = curl_init("https://api.mlpayment.cc/open-api/trade/collection");
     curl_setopt($ch, CURLOPT_POST, true);
@@ -53,11 +54,10 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
                 "orderCode" => $result['data']['orderCode']
             ]);
         } else {
-            $debug['mlpay_response'] = $result;
-            echo json_encode(["error" => $result['msg'] ?? "Signature Error", "debug" => $debug]);
+            echo json_encode(["error" => $result['msg'] ?? "Signature Error"]);
         }
     } else {
-        echo json_encode(["error" => "No response from ML Pay"]);
+        echo json_encode(["error" => "No response"]);
     }
     exit;
 }
