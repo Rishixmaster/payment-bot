@@ -1,5 +1,5 @@
 <?php
-// create_order.php - Debug Version
+// create_order.php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -16,21 +16,25 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
         "orderCode"   => "TG_" . time() . rand(10000,99999)
     ];
 
-    // === Debug Log ===
-    file_put_contents('sign_debug.log', date('H:i:s') . " - Params: " . json_encode($params) . "\n", FILE_APPEND);
-
     ksort($params);
     $query_string = http_build_query($params);
     $secret_key = "dtdLggJaWaltMXrtJVVs";
     $final_string = $query_string . "&key=" . $secret_key;
-    
     $signature = strtolower(md5($final_string));
-
-    file_put_contents('sign_debug.log', date('H:i:s') . " - Final String: " . $final_string . "\nSignature: " . $signature . "\n\n", FILE_APPEND);
 
     $params["sign"] = $signature;
 
     $json_data = json_encode($params, JSON_UNESCAPED_SLASHES);
+
+    // Debug Output
+    $debug = [
+        "status" => "debug",
+        "amount" => $amount,
+        "orderCode" => $params["orderCode"],
+        "final_string" => $final_string,
+        "signature" => $signature,
+        "json_sent" => $json_data
+    ];
 
     $ch = curl_init("https://api.mlpayment.cc/open-api/trade/collection");
     curl_setopt($ch, CURLOPT_POST, true);
@@ -39,8 +43,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     $response = curl_exec($ch);
     curl_close($ch);
-
-    file_put_contents('sign_debug.log', date('H:i:s') . " - ML Pay Response: " . $response . "\n\n", FILE_APPEND);
 
     if ($response) {
         $result = json_decode($response, true);
@@ -51,10 +53,11 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
                 "orderCode" => $result['data']['orderCode']
             ]);
         } else {
-            echo json_encode(["error" => $result['msg'] ?? "Signature Error"]);
+            $debug['mlpay_response'] = $result;
+            echo json_encode(["error" => $result['msg'] ?? "Signature Error", "debug" => $debug]);
         }
     } else {
-        echo json_encode(["error" => "No response"]);
+        echo json_encode(["error" => "No response from ML Pay"]);
     }
     exit;
 }
