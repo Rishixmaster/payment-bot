@@ -12,8 +12,8 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
         "appNo"       => "KARMAXRISHI",
         "callbackUrl" => "https://mlpay-bot.onrender.com/callback.php",
         "name"        => "User",
-        "remark"      => "Telegram Deposit",
-        "orderCode"   => "TG_" . time() . rand(10000, 99999)
+        "remark"      => "Telegram Bot Deposit",
+        "orderCode"   => "TG_" . time() . rand(10000,99999)
     ];
 
     ksort($params);
@@ -43,7 +43,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
                 "orderCode" => $result['data']['orderCode']
             ]);
         } else {
-            echo json_encode(["error" => $result['msg'] ?? "Unknown error"]);
+            echo json_encode(["error" => $result['msg'] ?? "API Error"]);
         }
     } else {
         echo json_encode(["error" => "No response from ML Pay"]);
@@ -51,5 +51,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
     exit;
 }
 
-echo "create_order.php loaded successfully";
+// Browser test
+echo "create_order.php is working";
 ?>
