@@ -1,19 +1,14 @@
 <?php
-// bot.php
+// bot.php - Debug Version
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 $botToken = '8287734551:AAHZdBs4Fo1GReozFWtcc-alz6mJR5XNI7E';
 
-function sendMessage($chat_id, $text, $reply_markup = null) {
+function sendMessage($chat_id, $text) {
     global $botToken;
     $url = "https://api.telegram.org/bot$botToken/sendMessage";
-    $data = [
-        'chat_id' => $chat_id,
-        'text' => $text,
-        'parse_mode' => 'HTML'
-    ];
-    if ($reply_markup) $data['reply_markup'] = $reply_markup;
+    $data = ['chat_id' => $chat_id, 'text' => $text, 'parse_mode' => 'HTML'];
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_POST, true);
@@ -23,23 +18,6 @@ function sendMessage($chat_id, $text, $reply_markup = null) {
     curl_close($ch);
 }
 
-function sendPhoto($chat_id, $photo_url, $caption) {
-    global $botToken;
-    $url = "https://api.telegram.org/bot$botToken/sendPhoto";
-    $data = [
-        'chat_id' => $chat_id,
-        'photo' => $photo_url,
-        'caption' => $caption,
-        'parse_mode' => 'HTML'
-    ];
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-    curl_exec($ch);
-    curl_close($ch);
-}
-
-// ================== Main Logic ==================
 $update = json_decode(file_get_contents('php://input'), true);
 
 if (isset($update['message'])) {
@@ -49,36 +27,20 @@ if (isset($update['message'])) {
     if (strpos($text, '/deposit') === 0) {
         $amount = explode(' ', $text)[1] ?? 100;
 
-        $result = file_get_contents("https://mlpay-bot.onrender.com/create_order.php?action=create_order&amount=$amount");
-        $res = json_decode($result, true);
+        sendMessage($chat_id, "🔄 Order creating... Amount: ₹".$amount);
 
-        if (isset($res['success'])) {
-            $orderCode = $res['orderCode'];
-            
-            // QR Code generate (Google Chart API)
-            $upiLink = $res['tradeUrl'];   // ML Pay cha link
-            $qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" . urlencode($upiLink);
+        // Call create_order
+        $response = file_get_contents("https://mlpay-bot.onrender.com/create_order.php?action=create_order&amount=".$amount);
+        
+        sendMessage($chat_id, "Raw Response:\n".$response);   // ← Debug
 
-            $caption = "💰 <b>Deposit Request</b>\n\n";
-            $caption .= "Amount: ₹<b>$amount</b>\n";
-            $caption .= "Order ID: <code>$orderCode</code>\n\n";
-            $caption .= "QR Scan karun payment kar ani\n";
-            $caption .= "<b>UTR Number</b> pathav.";
+        $res = json_decode($response, true);
 
-            sendPhoto($chat_id, $qr_url, $caption);
-            
-            // Order save kar (baadme verify sathi)
-            $data = json_encode(["chat_id" => $chat_id, "orderCode" => $orderCode, "amount" => $amount, "status" => "pending"]);
-            file_put_contents('orders.txt', $data . "\n", FILE_APPEND);
+        if ($res && isset($res['success']) && $res['success']) {
+            sendMessage($chat_id, "✅ Order Created! QR yeta ahe...");
         } else {
-            sendMessage($chat_id, "Error: " . ($res['error'] ?? 'Try again'));
+            sendMessage($chat_id, "❌ Create Order Failed\nError: " . ($res['error'] ?? $response));
         }
-    }
-
-    // UTR Verify (User UTR pathavto)
-    elseif (strpos(strtolower($text), 'utr') !== false || is_numeric($text)) {
-        sendMessage($chat_id, "✅ UTR Received!\n\nVerify karat ahe, thoda thamba...");
-        // Yeth verify logic yeto (manual kinva auto)
     }
 }
 ?>
