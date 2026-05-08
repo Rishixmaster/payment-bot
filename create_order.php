@@ -1,5 +1,6 @@
 <?php
 // create_order.php
+file_put_contents('debug.log', date('H:i:s') . " - POST: " . json_encode($_POST) . "\n", FILE_APPEND);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
