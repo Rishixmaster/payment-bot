@@ -5,7 +5,7 @@ ini_set('display_errors', 1);
 
 if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
     
-    $amount = isset($_POST['amount']) ? number_format((float)$_POST['amount'], 2, '.', '') : "100.00";
+    $amount = number_format((float)$_POST['amount'], 2, '.', '');
 
     $params = [
         "amount"      => $amount,
@@ -15,57 +15,35 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_order') {
         "orderCode"   => "ORDER_" . time() . rand(1000,9999)
     ];
 
-    // === Exact Signature Calculation (ML Pay Style) ===
     ksort($params);
-    
-    $query_string = "";
-    foreach ($params as $key => $value) {
-        $query_string .= $key . "=" . $value . "&";
-    }
-    $query_string = rtrim($query_string, "&");
-
+    $query_string = http_build_query($params);
     $secret_key = "dtdLggJaWaltMXrtJVVs";
     $final_string = $query_string . "&key=" . $secret_key;
-    
     $signature = strtolower(md5($final_string));
 
     $params["sign"] = $signature;
 
-    $json_data = json_encode($params, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $json_data = json_encode($params);
 
-    $api_url = "https://api.mlpayment.cc/open-api/trade/collection";
-
-    $ch = curl_init($api_url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    $ch = curl_init("https://api.mlpayment.cc/open-api/trade/collection");
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $json_data);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     $response = curl_exec($ch);
     curl_close($ch);
 
-    // Debug Response
-    file_put_contents('mlpay_debug.log', date('H:i:s') . " - Response: " . $response . "\n", FILE_APPEND);
+    $result = json_decode($response, true);
 
-    if ($response) {
-        $result = json_decode($response, true);
-        
-        if (isset($result['code']) && $result['code'] == 200) {
-            echo json_encode([
-                "success" => true,
-                "tradeUrl" => $result['data']['tradeUrl'] ?? '',
-                "orderCode" => $result['data']['orderCode'] ?? ''
-            ]);
-        } else {
-            echo json_encode([
-                "error" => $result['msg'] ?? 'Signature Error or API Error'
-            ]);
-        }
+    if (isset($result['code']) && $result['code'] == 200) {
+        echo json_encode([
+            "success" => true,
+            "tradeUrl" => $result['data']['tradeUrl'],
+            "orderCode" => $result['data']['orderCode'],
+            "amount" => $amount
+        ]);
     } else {
-        echo json_encode(["error" => "No response from ML Pay"]);
+        echo json_encode(["error" => $result['msg'] ?? "API Error"]);
     }
-    exit;
 }
-
-// Browser test
-echo "create_order.php working";
 ?>
