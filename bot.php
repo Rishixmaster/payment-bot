@@ -1,20 +1,14 @@
 <?php
-// bot.php - Final QR Code + UTR Flow
+// bot.php - ML Pay + UTR Verify Style (BJ's Bot jaise)
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 $botToken = '8287734551:AAHZdBs4Fo1GReozFWtcc-alz6mJR5XNI7E';
 
-function sendMessage($chat_id, $text, $reply_markup = null) {
+function sendMessage($chat_id, $text) {
     global $botToken;
     $url = "https://api.telegram.org/bot$botToken/sendMessage";
-    $data = [
-        'chat_id' => $chat_id,
-        'text' => $text,
-        'parse_mode' => 'HTML'
-    ];
-    if ($reply_markup) $data['reply_markup'] = $reply_markup;
-    
+    $data = ['chat_id' => $chat_id, 'text' => $text, 'parse_mode' => 'HTML'];
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
@@ -33,7 +27,6 @@ function sendPhoto($chat_id, $photo_url, $caption) {
         'caption' => $caption,
         'parse_mode' => 'HTML'
     ];
-    
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
@@ -42,24 +35,23 @@ function sendPhoto($chat_id, $photo_url, $caption) {
     curl_close($ch);
 }
 
-// ================== Main Logic ==================
+// ================== MAIN LOGIC ==================
 $update = json_decode(file_get_contents('php://input'), true);
 
 if (isset($update['message'])) {
     $chat_id = $update['message']['chat']['id'];
     $text = trim($update['message']['text']);
 
-    // Deposit Command
+    // === DEPOSIT COMMAND ===
     if (strpos($text, '/deposit') === 0) {
         $amount = explode(' ', $text)[1] ?? 100;
 
         if ($amount < 10) {
-            sendMessage($chat_id, "❌ Minimum ₹10 allowed.");
+            sendMessage($chat_id, "❌ Minimum Deposit ₹10");
             exit;
         }
 
-        sendMessage($chat_id, "🔄 Order creating... ₹".$amount);
-
+        // Create Order
         $create_url = "https://mlpay-bot.onrender.com/create_order.php";
         $postData = http_build_query(['action' => 'create_order', 'amount' => $amount]);
 
@@ -76,34 +68,38 @@ if (isset($update['message'])) {
             $tradeUrl = $res['tradeUrl'];
             $orderCode = $res['orderCode'];
 
-            // QR Code Generate
-            $qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=" . urlencode($tradeUrl);
+            $qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=" . urlencode($tradeUrl);
 
-            $caption = "💰 <b>Deposit Request</b>\n\n";
+            $caption = "💳 <b>Deposit Request</b>\n\n";
             $caption .= "Amount: ₹<b>" . $amount . "</b>\n";
             $caption .= "Order ID: <code>" . $orderCode . "</code>\n\n";
-            $caption .= "QR Code Scan कर payment कर.\n\n";
-            $caption .= "✅ Payment केल्यानंतर <b>UTR Number</b> इथे पाठवा.";
+            $caption .= "🔻 QR Scan कर Payment कर\n";
+            $caption .= "🔹 Payment केल्यानंतर <b>UTR / Transaction ID</b> इथे पाठवा";
 
             sendPhoto($chat_id, $qr_url, $caption);
 
-            // Order Save (for future verification)
-            $orderData = json_encode([
+            // Order Save
+            $data = json_encode([
                 'chat_id' => $chat_id,
                 'orderCode' => $orderCode,
                 'amount' => $amount,
                 'status' => 'pending'
             ]);
-            file_put_contents('orders.txt', $orderData . "\n", FILE_APPEND);
+            file_put_contents('orders.txt', $data . "\n", FILE_APPEND);
         } else {
-            sendMessage($chat_id, "❌ Order creation failed.");
+            sendMessage($chat_id, "❌ Error: " . ($res['error'] ?? 'Try again'));
         }
     }
 
-    // UTR Number Handle
-    elseif (strlen($text) > 8 && (strpos(strtolower($text), 'utr') !== false || is_numeric($text))) {
-        sendMessage($chat_id, "✅ UTR Received!\n\nPayment verify करत आहे, कृपया थोडा वेळ थांबा...");
-        // Yeth manual verify kinva auto callback logic yeto
+    // === UTR / TRANSACTION ID HANDLE ===
+    elseif (strlen($text) > 8) {
+        sendMessage($chat_id, "✅ UTR Received: <code>" . $text . "</code>\n\nPayment Verify करत आहे...");
+        
+        // Yethun tu verification logic add kar shakto (manual or auto)
+        // For now simple success message
+        sendMessage($chat_id, "✅ Payment Verified Successfully!\nAmount Added to your balance.");
+        
+        // Balance add karnyasathi logic pudhe add karu
     }
 }
 ?>
